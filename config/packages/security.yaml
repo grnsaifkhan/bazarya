@@ -1,4 +1,6 @@
 security:
+  role_hierarchy:
+    ROLE_ADMIN: [ROLE_CUSTOMER]
   # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
   password_hashers:
     # auto hasher with default options for the User class (and children)
@@ -13,7 +15,7 @@ security:
     app_user_provider:
       entity:
         class: App\Entity\User
-        property: username
+        property: email
   firewalls:
     # Open routes (no authentication needed)
     api_login:
@@ -46,7 +48,8 @@ security:
   access_control:
     - { path: ^/api/login, roles: IS_AUTHENTICATED_ANONYMOUSLY }
     - { path: ^/api/register, roles: IS_AUTHENTICATED_ANONYMOUSLY }
-    - { path: ^/api/, roles: IS_AUTHENTICATED_FULLY }
+    - { path: ^/api/admin, roles: ROLE_ADMIN }
+    - { path: ^/api/, roles: ROLE_CUSTOMER }
 
 when@test:
   security:
