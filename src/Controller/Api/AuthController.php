@@ -107,7 +107,7 @@ class AuthController extends AbstractController
         return new JsonResponse(['message' => "User successfully registered with role {$role}"], JsonResponse::HTTP_CREATED);
     }
 
-    // #[IsGranted('ROLE_ADMIN')]
+    #[IsGranted('ROLE_ADMIN')]
     #[Route('/api/protected', name: 'api_protected', methods: ['POST'])]
     public function protected(Request $request): JsonResponse
     {
