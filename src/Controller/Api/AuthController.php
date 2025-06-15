@@ -11,8 +11,11 @@ use Symfony\Component\HttpFoundation\Request;
 use Doctrine\ORM\EntityManagerInterface;  // Add this import
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Finder\Exception\AccessDeniedException;
 
 class AuthController extends AbstractController
 {
@@ -35,16 +38,16 @@ class AuthController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
 
-        if (!isset($data['username']) || !isset($data['password'])) {
+        if (!isset($data['email']) || !isset($data['password'])) {
             return new JsonResponse(['error' => 'Username and password are required'], JsonResponse::HTTP_BAD_REQUEST);
         }
 
         $userRepository = $this->entityManager->getRepository(User::class);
-        $user = $userRepository->findOneBy(['username' => $data['username']]);
+        $user = $userRepository->findOneBy(['email' => $data['email']]);
 
         // Log the password comparison
-        dump($user->getPassword()); // Check the password stored in DB
-        dump($data['password']); // Check the password provided by the user
+        // dump($user->getPassword()); // Check the password stored in DB
+        // dump($data['password']); // Check the password provided by the user
 
         if (!$user || !$this->passwordHasher->isPasswordValid($user, $data['password'])) {
             return new JsonResponse(['error' => 'Invalid credentials'], JsonResponse::HTTP_UNAUTHORIZED);
@@ -63,7 +66,8 @@ class AuthController extends AbstractController
 
         $decryptedToken = JWT::decode($token, new Key($publicKey, 'RS256'));
 
-        return new JsonResponse(['token' => $token, "username" => $decryptedToken->username]);
+        // return new JsonResponse(['token' => $token, "username" => $decryptedToken->username]);
+        return new JsonResponse(['token' => $token]);
     }
 
 
@@ -76,20 +80,34 @@ class AuthController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
 
+        if (!isset($data['email']) || !isset($data['password'])) {
+            return new JsonResponse(['error' => 'Email and password are required'], JsonResponse::HTTP_BAD_REQUEST);
+        }
+
+        $allowedRoles = ['ROLE_ADMIN', 'ROLE_CUSTOMER'];
+        $role = $data['role'] ?? 'ROLE_CUSTOMER'; // default to customer if no role provided
+
+        if (!in_array($role, $allowedRoles)) {
+            return new JsonResponse(['error' => 'Invalid role provided'], JsonResponse::HTTP_BAD_REQUEST);
+        }
+
         $user = new User();
-        $user->setUsername($data['username']);
-        $user->setRoles(['ROLE_USER']);  // Assign default role
+        $user->setEmail($data['email']);
+        $user->setRoles([$role]);  // Assign role dynamically
 
         $hashedPassword = $this->passwordHasher->hashPassword($user, $data['password']);
         $user->setPassword($hashedPassword);
 
+        $user->setCreatedAt(new \DateTimeImmutable());
+        $user->setUpdatedAt(new \DateTimeImmutable());
+
         $this->entityManager->persist($user);
         $this->entityManager->flush();
 
-        return new JsonResponse(['message' => 'User successfully registered'], JsonResponse::HTTP_CREATED);
+        return new JsonResponse(['message' => "User successfully registered with role {$role}"], JsonResponse::HTTP_CREATED);
     }
 
-
+    // #[IsGranted('ROLE_ADMIN')]
     #[Route('/api/protected', name: 'api_protected', methods: ['POST'])]
     public function protected(Request $request): JsonResponse
     {
@@ -100,7 +118,18 @@ class AuthController extends AbstractController
         //     return new JsonResponse(['message' => 'JWT Token not found'], JsonResponse::HTTP_UNAUTHORIZED);
         // }
 
+        if (!$this->isGranted('ROLE_ADMIN')) {
+            return new JsonResponse(['error' => 'Access Denied'], JsonResponse::HTTP_FORBIDDEN);
+        }
+
         // $token = substr($authHeader, 7); // Extract the token from the header
         return new JsonResponse(["message" => "hello saif "]);
+    }
+
+
+    #[Route('/', name: 'default_page', methods: ['GET'])]
+    public function defaults(): Response
+    {
+        return new Response('');
     }
 }
