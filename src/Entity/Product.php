@@ -10,7 +10,6 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
-#[ApiResource(operations: [])]
 class Product
 {
     #[ORM\Id]
@@ -29,6 +28,9 @@ class Product
 
     #[ORM\Column(length: 100)]
     private ?string $brand = null;
+
+    #[ORM\Column]
+    private ?int $stock = null;
 
     #[ORM\ManyToOne(targetEntity: Category::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -114,6 +116,17 @@ class Product
     public function setBrand(string $brand): static
     {
         $this->brand = $brand;
+        return $this;
+    }
+
+    public function getStock(): ?int
+    {
+        return $this->stock;
+    }
+
+    public function setStock(int $stock): static
+    {
+        $this->stock = $stock;
         return $this;
     }
 

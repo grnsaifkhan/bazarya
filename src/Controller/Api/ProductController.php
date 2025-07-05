@@ -90,7 +90,7 @@ class ProductController extends AbstractController
     }
 
 
-    #[Route('', name: 'api_product_index', methods: ['GET'])]
+    #[Route('/k', name: 'api_product_index', methods: ['GET'])]
     public function index(ProductRepository $productRepository, SerializerInterface $serializer): JsonResponse
     {
         $product = $productRepository->findAll();
@@ -118,7 +118,7 @@ class ProductController extends AbstractController
             'price' => $product->getPrice(),
             'stock' => $product->getStock(),
             'category' => $product->getCategory(),
-            'image' => $product->getImage(),
+            // 'image' => $product->getImage(),
         ];
 
         return new JsonResponse($data);
@@ -129,15 +129,35 @@ class ProductController extends AbstractController
     {
         $products = $entityManager->getRepository(Product::class)->findAll();
 
-        $data = array_map(fn($product) => [
-            //'id' => $product->getId(),
-            'name' => $product->getName(),
-            'description' => $product->getDescription(),
-            'price' => $product->getPrice(),
-            'stock' => $product->getStock(),
-            'category' => $product->getCategory(),
-            'image' => $product->getImage(),
-        ], $products);
+        // $data = array_map(fn($product) => [
+        //     //'id' => $product->getId(),
+        //     'name' => $product->getName(),
+        //     'description' => $product->getDescription(),
+        //     'price' => $product->getPrice(),
+        //     'stock' => $product->getStock(),
+        //     'category' => $product->getCategory(),
+        //     'image' => $product->getImage(),
+        // ], $products);
+
+        $data = array_map(function (Product $product) {
+            $category = $product->getCategory();
+
+            return [
+                'name' => $product->getName(),
+                'description' => $product->getDescription(),
+                'price' => $product->getPrice(),
+                'brand' => $product->getBrand(),
+                'stock' => $product->getStock(),
+                // 'createdAt' => $product->getCreatedAt(),
+                'updatedAt' => $product->getUpdatedAt(),
+                'category' => $category ? [
+                    // 'id' => $category->getId(),
+                    'name' => $category->getName(),
+                    'description' => $category->getDescription()
+                ] : null,
+
+            ];
+        }, $products);
 
         return new JsonResponse(['data' => $data]);
     }
