@@ -72,4 +72,81 @@ final class OrderController extends AbstractController
 
         return new JsonResponse(["message" => "Order created successfully", 'order_id' => $order->getId()], JsonResponse::HTTP_ACCEPTED);
     }
+
+
+    #[Route('/api/orders/{id}', name: 'fetch_order', methods: ['GET'])]
+    public function getOrder(int $id, EntityManagerInterface $em, Security $security): JsonResponse
+    {
+        $user = $security->getUser();
+
+        if (!$user) {
+            return new JsonResponse(['error' => 'Unauthorized'], 401);
+        }
+
+
+        // Fetch order by ID
+        $order = $em->getRepository(Order::class)->find($id);
+
+        // Check if order exists and belongs to this user
+        if (!$order || $order->getUser() !== $user) {
+            return new JsonResponse(['error' => 'Order not found or access denied'], 404);
+        }
+
+
+        // Format order items
+        $items = [];
+        foreach ($order->getOrderItems() as $item) {
+            $items[] = [
+                'product_name' => $item->getProduct()->getName(),
+                'size' => $item->getSizeLabel(),
+                'quantity' => $item->getQuantity(),
+                'price_each' => $item->getPriceEach(),
+            ];
+        }
+
+        // Build final response
+        return new JsonResponse([
+            'id' => $order->getId(),
+            'status' => $order->getStatus()->value,
+            'shippingAddress' => $order->getShippingAddress(),
+            'orderDate' => $order->getOrderDate()->format('Y-m-d H:i'),
+            'total' => $order->getTotal(),
+            'items' => $items,
+        ], 200);
+    }
+
+
+    #[Route('/api/orders/{id}/calcel', name: 'cancel_order', methods: ['PATCH'])]
+    public function cancelOrder(int $id, Security $security, EntityManagerInterface $em)
+    {
+        $user = $security->getUser();
+
+        if (!$user) {
+            return new JsonResponse(['error' => 'Access denied'], JsonResponse::HTTP_FORBIDDEN);
+        }
+
+
+        $order = $em->getRepository(Order::class)->find($id);
+
+
+        if (!$order || $order->getUser() !== $user) {
+            return new JsonResponse(['error' => 'Order not found or access denied'], JsonResponse::HTTP_NOT_FOUND);
+        }
+
+
+        if ($order->getStatus() !== OrderStatus::PENDING) {
+            return new JsonResponse([
+                'error' => 'You can only cancel orders that are still pending.'
+            ], JsonResponse::HTTP_BAD_REQUEST);
+        }
+
+        $order->setStatus(OrderStatus::CANCELLED);
+        $em->flush();
+
+        return new JsonResponse([
+            'message' => 'Order cancelled successfully.',
+            'orderId' => $order->getId(),
+            'newStatus' => $order->getStatus()->value,
+        ]);
+    }
 }
